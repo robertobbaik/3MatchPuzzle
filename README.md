@@ -27,6 +27,38 @@ Unity 기반 3Match 퍼즐 게임 프로토타입입니다.
 
 AI는 반복적인 구현과 구조 검토를 빠르게 진행하는 데 사용하며, 최종 설계와 게임 방향은 개발자가 검토하고 결정합니다.
 
+## Agent Guideline Workflow
+
+AI 작업 지침은 루트의 `AGENTS.md`와 `docs/agents/rules/` 하위 세부 지침으로 관리합니다.
+
+```txt
+AGENTS.md
+-> docs/AGENTS.md
+-> docs/agents/manifest.json
+-> docs/agents/rules/*.md
+```
+
+작업 흐름은 다음을 기준으로 합니다.
+
+1. 개발자가 구현 목표, 금지 사항, 우선순위를 AI에 전달합니다.
+2. AI는 `AGENTS.md`를 시작점으로 프로젝트 지침을 확인합니다.
+3. 필요한 세부 지침을 읽고 현재 요청에 맞는 작업 범위를 정합니다.
+4. 구현 전 구조나 리스크를 먼저 설명합니다.
+5. 코드 작성 후 빌드, 테스트, 변경 파일을 확인합니다.
+6. 개발자가 결과를 리뷰하고 다음 작업 지침을 보강합니다.
+
+세부 지침은 역할별로 분리합니다.
+
+- `project_overview`: 프로젝트 목표와 개발 방향
+- `csharp_style`: C# 작성 규칙
+- `unity_architecture`: Unity 구조와 책임 분리
+- `dots_ecs_rules`: DOTS / ECS 적용 기준
+- `gameplay_3match`: 3Match 게임플레이 규칙
+- `asset_scene_rules`: 에셋, 씬, 프리팹 관리 기준
+- `git_workflow`: Git 작업 규칙
+
+지침을 수정할 때는 세부 규칙 파일을 먼저 수정하고, 필요하면 manifest와 `docs/AGENTS.md`의 인덱스를 함께 갱신합니다.
+
 ## Current Scope
 
 - Unity 3D / C#
