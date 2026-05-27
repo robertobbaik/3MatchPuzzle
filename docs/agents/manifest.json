@@ -1,0 +1,52 @@
+{
+  "project": "3Match",
+  "engine": "Unity 3D",
+  "language": "C#",
+  "architecture": "Unity DOTS + Hybrid Unity",
+  "hash_algorithm": "SHA-256",
+  "hash_length": 6,
+  "rules": [
+    {
+      "order": 1,
+      "name": "project_overview",
+      "file": "agents/rules/01_project_overview.7d0192.md",
+      "hash": "7d0192"
+    },
+    {
+      "order": 2,
+      "name": "csharp_style",
+      "file": "agents/rules/02_csharp_style.3c9d23.md",
+      "hash": "3c9d23"
+    },
+    {
+      "order": 3,
+      "name": "unity_architecture",
+      "file": "agents/rules/03_unity_architecture.59acc1.md",
+      "hash": "59acc1"
+    },
+    {
+      "order": 4,
+      "name": "dots_ecs_rules",
+      "file": "agents/rules/04_dots_ecs_rules.f89d1d.md",
+      "hash": "f89d1d"
+    },
+    {
+      "order": 5,
+      "name": "gameplay_3match",
+      "file": "agents/rules/05_gameplay_3match.626554.md",
+      "hash": "626554"
+    },
+    {
+      "order": 6,
+      "name": "asset_scene_rules",
+      "file": "agents/rules/06_asset_scene_rules.ffd8d6.md",
+      "hash": "ffd8d6"
+    },
+    {
+      "order": 7,
+      "name": "git_workflow",
+      "file": "agents/rules/07_git_workflow.734d13.md",
+      "hash": "734d13"
+    }
+  ]
+}
