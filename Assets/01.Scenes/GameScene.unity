@@ -168,6 +168,7 @@ MonoBehaviour:
   _height: 8
   _cellSize: 1
   _cellRoot: {fileID: 0}
+  _poolRoot: {fileID: 0}
   _defaultBlockPrefabs:
   - {fileID: 11400000, guid: 74feb7437329489290d23eb7fd3a7eb1, type: 3}
   - {fileID: 11400000, guid: bb09209a4bca43619bd9cb9893e1383a, type: 3}
@@ -176,6 +177,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 4fc3d8c3e34f42ec805941911377954e, type: 3}
   _inputController: {fileID: 9000003}
   _buildOnStart: 1
+  _swapDuration: 0.18
+  _removeDuration: 0.12
+  _fallDuration: 0.2
 --- !u!114 &9000003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -189,6 +193,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _boardGrid: {fileID: 9000002}
+  _inputCamera: {fileID: 519420031}
+  _cellLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967291
+  _dragThresholdPixels: 35
+  _dragPreviewMaxCellRatio: 0.95
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -295,7 +305,7 @@ Camera:
   far clip plane: 1000
   field of view: 34
   orthographic: 1
-  orthographic size: 5
+  orthographic size: 10
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2

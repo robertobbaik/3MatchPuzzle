@@ -105,6 +105,11 @@ namespace ThreeMatch.Board
                     _cellMap[x, y] = cell;
                 }
             }
+
+            if (Application.isPlaying)
+            {
+                StartCoroutine(ResolveInitialMatchesRoutine());
+            }
         }
 
         public BoardCellView GetCell(int x, int y)
@@ -187,6 +192,8 @@ namespace ThreeMatch.Board
             {
                 AddLineMatches(matches, GetVerticalLine(x));
             }
+
+            AddSquareMatches(matches);
 
             return new List<BoardCellView>(matches);
         }
@@ -345,7 +352,7 @@ namespace ThreeMatch.Board
                 secondTargetPosition,
                 _swapDuration);
 
-            List<BoardCellView> matchedCells = FindMatchesForCells(firstCell, secondCell);
+            List<BoardCellView> matchedCells = FindAllMatches();
 
             if (matchedCells.Count == 0)
             {
@@ -389,18 +396,6 @@ namespace ThreeMatch.Board
                 firstCell.transform.localPosition = GetCellPosition(secondPosition.x, secondPosition.y);
                 secondCell.transform.localPosition = GetCellPosition(firstPosition.x, firstPosition.y);
             }
-        }
-
-        private List<BoardCellView> FindMatchesForCells(BoardCellView firstCell, BoardCellView secondCell)
-        {
-            HashSet<BoardCellView> matches = new HashSet<BoardCellView>();
-
-            AddLineMatches(matches, GetHorizontalLine(firstCell.Y));
-            AddLineMatches(matches, GetVerticalLine(firstCell.X));
-            AddLineMatches(matches, GetHorizontalLine(secondCell.Y));
-            AddLineMatches(matches, GetVerticalLine(secondCell.X));
-
-            return new List<BoardCellView>(matches);
         }
 
         private List<BoardCellView> GetHorizontalLine(int y)
@@ -463,6 +458,51 @@ namespace ThreeMatch.Board
 
                 startIndex = endIndex;
             }
+        }
+
+        private void AddSquareMatches(HashSet<BoardCellView> matches)
+        {
+            for (int y = 0; y < _height - 1; y++)
+            {
+                for (int x = 0; x < _width - 1; x++)
+                {
+                    BoardCellView bottomLeft = GetCell(x, y);
+                    BoardCellView bottomRight = GetCell(x + 1, y);
+                    BoardCellView topLeft = GetCell(x, y + 1);
+                    BoardCellView topRight = GetCell(x + 1, y + 1);
+
+                    if (!CanMatchSquare(bottomLeft, bottomRight, topLeft, topRight))
+                    {
+                        continue;
+                    }
+
+                    matches.Add(bottomLeft);
+                    matches.Add(bottomRight);
+                    matches.Add(topLeft);
+                    matches.Add(topRight);
+                }
+            }
+        }
+
+        private static bool CanMatchSquare(
+            BoardCellView bottomLeft,
+            BoardCellView bottomRight,
+            BoardCellView topLeft,
+            BoardCellView topRight)
+        {
+            if (!CanMatchCell(bottomLeft)
+                || !CanMatchCell(bottomRight)
+                || !CanMatchCell(topLeft)
+                || !CanMatchCell(topRight))
+            {
+                return false;
+            }
+
+            BlockTypeId typeId = bottomLeft.Block.TypeId;
+
+            return bottomRight.Block.TypeId == typeId
+                && topLeft.Block.TypeId == typeId
+                && topRight.Block.TypeId == typeId;
         }
 
         private static bool CanMatchCell(BoardCellView cell)
@@ -532,6 +572,20 @@ namespace ThreeMatch.Board
 
                 matchedCells = FindAllMatches();
             }
+        }
+
+        private IEnumerator ResolveInitialMatchesRoutine()
+        {
+            List<BoardCellView> matchedCells = FindAllMatches();
+
+            if (matchedCells.Count == 0)
+            {
+                yield break;
+            }
+
+            _isResolving = true;
+            yield return ResolveMatchesRoutine(matchedCells);
+            _isResolving = false;
         }
 
         private IEnumerator CollapseAndRefillRoutine()
