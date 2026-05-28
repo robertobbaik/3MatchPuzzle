@@ -74,6 +74,24 @@ private void ResolveMatches()
 - 50줄을 넘기면 분리 검토.
 - Boolean 인자가 2개 이상이면 별도 옵션 타입을 고려한다.
 
+## Scope Rule
+
+- 현재 요구사항을 해결하는 데 필요한 코드만 작성한다.
+- 미래 확장 가능성만을 이유로 옵션, 분기, 추상화, 범용 처리를 추가하지 않는다.
+- 프로젝트에서 당장 사용하지 않는 플랫폼, 입력 방식, 렌더링 방식, 예외 케이스는 구현하지 않는다.
+- 같은 기능을 더 짧고 명확한 코드로 표현할 수 있으면 짧은 쪽을 선택한다.
+- 기능 추가 후 코드가 요구사항보다 넓어졌다면 즉시 줄인다.
+
+## API Usage Rule
+
+- `out` 파라미터 문법은 가능하면 사용하지 않는다.
+- 여러 값을 반환해야 할 때는 작은 결과 타입, struct, class, tuple보다 명확한 전용 타입을 우선 검토한다.
+- 성능상 필요한 `Try...` 패턴이나 .NET/Unity 표준 API 호출처럼 불가피한 경우에만 `out`을 제한적으로 사용한다.
+- `GetComponent`, `GetComponentInChildren`, `FindObjectOfType`, `FindFirstObjectByType` 계열 호출은 가능하면 사용하지 않는다.
+- Unity 컴포넌트 참조는 `[SerializeField]`로 명시적으로 연결하거나 초기화 단계에서 주입한다.
+- 런타임 반복 경로, `Update`, 매치 검사, 입력 처리 중에는 `GetComponent` 계열 호출을 피한다.
+- `GetComponent` 계열 호출이 필요한 경우 `Awake`, `OnValidate`, 초기화 메서드에서 한 번만 실행하고 결과를 캐싱한다.
+
 ## Comment Rule
 
 - 코드가 무엇을 하는지 설명하지 않는다.

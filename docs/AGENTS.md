@@ -30,7 +30,7 @@ AGENTS.md는 다음 역할만 가진다.
 | Order | Rule File | Hash | Purpose |
 |---:|---|---|---|
 | 01 | `agents/rules/01_project_overview.7d0192.md` | `7d0192` | 프로젝트 목표와 전체 방향 |
-| 02 | `agents/rules/02_csharp_style.3c9d23.md` | `3c9d23` | C# 코드 스타일 |
+| 02 | `agents/rules/02_csharp_style.8fd173.md` | `8fd173` | C# 코드 스타일 |
 | 03 | `agents/rules/03_unity_architecture.59acc1.md` | `59acc1` | Unity 프로젝트 구조 |
 | 04 | `agents/rules/04_dots_ecs_rules.f89d1d.md` | `f89d1d` | DOTS / ECS 작성 규칙 |
 | 05 | `agents/rules/05_gameplay_3match.626554.md` | `626554` | 3Match 게임플레이 규칙 |
