@@ -803,22 +803,47 @@ namespace ThreeMatch.Board
 
         private static BlockTypeId GetSpecialBlockType(MatchGroup matchGroup)
         {
+            if (matchGroup.Direction == MatchDirection.Horizontal)
+            {
+                return GetHorizontalSpecialBlockType(matchGroup.Count);
+            }
+
+            if (matchGroup.Direction == MatchDirection.Vertical)
+            {
+                return GetVerticalSpecialBlockType(matchGroup.Count);
+            }
+
             if (matchGroup.Direction == MatchDirection.Square)
             {
                 return BlockTypeId.Bomb;
             }
 
-            if (matchGroup.Count >= 5)
+            return BlockTypeId.None;
+        }
+
+        private static BlockTypeId GetHorizontalSpecialBlockType(int matchCount)
+        {
+            if (matchCount >= 5)
             {
                 return BlockTypeId.ColorBomb;
             }
 
-            if (matchGroup.Count == 4 && matchGroup.Direction == MatchDirection.Horizontal)
+            if (matchCount == 4)
             {
                 return BlockTypeId.HorizontalRocket;
             }
 
-            if (matchGroup.Count == 4 && matchGroup.Direction == MatchDirection.Vertical)
+            return BlockTypeId.None;
+        }
+
+        private static BlockTypeId GetVerticalSpecialBlockType(int matchCount)
+        {
+            if (matchCount >= 5)
+            {
+                return BlockTypeId.ColorBomb;
+            }
+
+            if (matchCount == 4)
             {
                 return BlockTypeId.VerticalRocket;
             }
