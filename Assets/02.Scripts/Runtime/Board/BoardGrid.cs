@@ -23,8 +23,8 @@ namespace ThreeMatch.Board
         [SerializeField] private Transform _cellRoot;
         [SerializeField] private Transform _poolRoot;
         [SerializeField] private List<BoardCellView> _defaultBlockPrefabs = new List<BoardCellView>();
+        [SerializeField] private List<BoardCellView> _itemBlockPrefabs = new List<BoardCellView>();
         [SerializeField] private BoardInputController _inputController;
-        [SerializeField] private bool _buildOnStart = true;
 
         [Header("Animation")]
         [SerializeField, Min(0.01f)] private float _swapDuration = 0.18f;
@@ -45,15 +45,13 @@ namespace ThreeMatch.Board
         public IReadOnlyList<BoardCellView> Cells => _cells;
         public bool IsResolving => _isResolving;
 
-        private void Start()
+        public void Initialize(BoardInputController inputController)
         {
-            if (_buildOnStart)
-            {
-                RebuildBoard();
-            }
+            _inputController = inputController;
+            NormalizeSettings();
         }
 
-        private void OnValidate()
+        private void NormalizeSettings()
         {
             _width = Mathf.Max(MinBoardSize, _width);
             _height = Mathf.Max(MinBoardSize, _height);
@@ -66,6 +64,8 @@ namespace ThreeMatch.Board
         [ContextMenu("Rebuild Board")]
         public void RebuildBoard()
         {
+            NormalizeSettings();
+
             if (_defaultBlockPrefabs.Count == 0)
             {
                 Debug.LogError("BoardGrid requires at least one default block prefab before rebuilding the board.", this);
@@ -77,7 +77,7 @@ namespace ThreeMatch.Board
 
             ClearGeneratedCells(root);
             _cellPool.Clear();
-            _cellPool.RegisterPrefabs(_defaultBlockPrefabs);
+            _cellPool.RegisterPrefabs(GetAllBlockPrefabs());
 
             if (_cellPool.RegisteredTypeCount == 0)
             {
@@ -179,23 +179,37 @@ namespace ThreeMatch.Board
             return true;
         }
 
+        public bool TryActivateItemCell(BoardCellView cell)
+        {
+            if (_isResolving || cell == null || cell.Block == null || !cell.Block.CanActivate)
+            {
+                return false;
+            }
+
+            StartCoroutine(ActivateItemCellRoutine(cell));
+            return true;
+        }
+
         public List<BoardCellView> FindAllMatches()
         {
             HashSet<BoardCellView> matches = new HashSet<BoardCellView>();
+            List<MatchGroup> matchGroups = FindMatchGroups();
 
-            for (int y = 0; y < _height; y++)
+            for (int i = 0; i < matchGroups.Count; i++)
             {
-                AddLineMatches(matches, GetHorizontalLine(y));
+                matchGroups[i].AddCellsTo(matches);
             }
-
-            for (int x = 0; x < _width; x++)
-            {
-                AddLineMatches(matches, GetVerticalLine(x));
-            }
-
-            AddSquareMatches(matches);
 
             return new List<BoardCellView>(matches);
+        }
+
+        private List<BoardCellView> GetAllBlockPrefabs()
+        {
+            List<BoardCellView> prefabs = new List<BoardCellView>(_defaultBlockPrefabs.Count + _itemBlockPrefabs.Count);
+            prefabs.AddRange(_defaultBlockPrefabs);
+            prefabs.AddRange(_itemBlockPrefabs);
+
+            return prefabs;
         }
 
         private Transform ResolveCellRoot()
@@ -353,8 +367,10 @@ namespace ThreeMatch.Board
                 _swapDuration);
 
             List<BoardCellView> matchedCells = FindAllMatches();
+            List<BoardCellView> activatedItemCells = FindActivatedItemCells(firstCell, secondCell);
+            SpecialBlockSpawn specialBlockSpawn = FindSpecialBlockSpawn(firstCell, secondCell);
 
-            if (matchedCells.Count == 0)
+            if (matchedCells.Count == 0 && activatedItemCells.Count == 0)
             {
                 Vector3 firstRevertTarget = GetCellPosition(secondCell.X, secondCell.Y);
                 Vector3 secondRevertTarget = GetCellPosition(firstCell.X, firstCell.Y);
@@ -373,8 +389,227 @@ namespace ThreeMatch.Board
                 yield break;
             }
 
-            yield return ResolveMatchesRoutine(matchedCells);
+            if (activatedItemCells.Count > 0)
+            {
+                specialBlockSpawn = SpecialBlockSpawn.None;
+            }
+
+            AddUniqueCells(matchedCells, activatedItemCells);
+            yield return ResolveMatchesRoutine(matchedCells, specialBlockSpawn);
             _isResolving = false;
+        }
+
+        private IEnumerator ActivateItemCellRoutine(BoardCellView cell)
+        {
+            _isResolving = true;
+
+            List<BoardCellView> activatedItemCells = FindActivatedItemCells(cell, cell);
+            yield return ResolveMatchesRoutine(activatedItemCells);
+
+            _isResolving = false;
+        }
+
+        private List<BoardCellView> FindActivatedItemCells(BoardCellView firstCell, BoardCellView secondCell)
+        {
+            HashSet<BoardCellView> affectedCells = new HashSet<BoardCellView>();
+            Queue<ItemActivation> activations = new Queue<ItemActivation>();
+            HashSet<BlockBase> queuedItems = new HashSet<BlockBase>();
+
+            EnqueueActivation(firstCell.Block, secondCell.Block, activations, queuedItems);
+            EnqueueActivation(secondCell.Block, firstCell.Block, activations, queuedItems);
+
+            while (activations.Count > 0)
+            {
+                ItemActivation activation = activations.Dequeue();
+
+                if (activation.ItemBlock.TypeId == BlockTypeId.Bomb)
+                {
+                    AddBombAffectedCells(activation, affectedCells, activations, queuedItems);
+                    continue;
+                }
+
+                if (activation.ItemBlock.TypeId == BlockTypeId.ColorBomb)
+                {
+                    AddColorBombAffectedCells(activation, affectedCells, activations, queuedItems);
+                    continue;
+                }
+
+                for (int i = 0; i < _cells.Count; i++)
+                {
+                    BoardCellView candidateCell = _cells[i];
+
+                    if (candidateCell == null || candidateCell.Block == null)
+                    {
+                        continue;
+                    }
+
+                    if (!activation.ItemBlock.AffectsCell(
+                        activation.TargetBlock,
+                        candidateCell.Block,
+                        _width,
+                        _height))
+                    {
+                        continue;
+                    }
+
+                    affectedCells.Add(candidateCell);
+                    EnqueueActivation(candidateCell.Block, activation.TargetBlock, activations, queuedItems);
+                }
+            }
+
+            return new List<BoardCellView>(affectedCells);
+        }
+
+        private void AddBombAffectedCells(
+            ItemActivation activation,
+            HashSet<BoardCellView> affectedCells,
+            Queue<ItemActivation> activations,
+            HashSet<BlockBase> queuedItems)
+        {
+            BoardCellView bombCell = GetCell(activation.ItemBlock.BoardPosition.x, activation.ItemBlock.BoardPosition.y);
+            AddAffectedCell(bombCell, activation, affectedCells, activations, queuedItems);
+
+            BoardCellView targetCell = GetBombTargetCell(activation);
+            AddAffectedCell(targetCell, activation, affectedCells, activations, queuedItems);
+        }
+
+        private BoardCellView GetBombTargetCell(ItemActivation activation)
+        {
+            if (activation.TargetBlock != activation.ItemBlock && activation.TargetBlock.CanMatch)
+            {
+                return GetCell(activation.TargetBlock.BoardPosition.x, activation.TargetBlock.BoardPosition.y);
+            }
+
+            BoardCellView bestCell = null;
+            int bestDistance = int.MaxValue;
+            Vector2Int itemPosition = activation.ItemBlock.BoardPosition;
+
+            for (int i = 0; i < _cells.Count; i++)
+            {
+                BoardCellView candidateCell = _cells[i];
+
+                if (!CanMatchCell(candidateCell))
+                {
+                    continue;
+                }
+
+                int distance = Mathf.Abs(candidateCell.X - itemPosition.x) + Mathf.Abs(candidateCell.Y - itemPosition.y);
+
+                if (distance < bestDistance)
+                {
+                    bestCell = candidateCell;
+                    bestDistance = distance;
+                }
+            }
+
+            return bestCell;
+        }
+
+        private void AddColorBombAffectedCells(
+            ItemActivation activation,
+            HashSet<BoardCellView> affectedCells,
+            Queue<ItemActivation> activations,
+            HashSet<BlockBase> queuedItems)
+        {
+            BoardCellView colorBombCell = GetCell(activation.ItemBlock.BoardPosition.x, activation.ItemBlock.BoardPosition.y);
+            AddAffectedCell(colorBombCell, activation, affectedCells, activations, queuedItems);
+
+            BlockTypeId targetType = GetColorBombTargetType(activation);
+
+            if (targetType == BlockTypeId.None)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _cells.Count; i++)
+            {
+                BoardCellView candidateCell = _cells[i];
+
+                if (!CanMatchCell(candidateCell) || candidateCell.Block.TypeId != targetType)
+                {
+                    continue;
+                }
+
+                AddAffectedCell(candidateCell, activation, affectedCells, activations, queuedItems);
+            }
+        }
+
+        private BlockTypeId GetColorBombTargetType(ItemActivation activation)
+        {
+            if (activation.TargetBlock != activation.ItemBlock && activation.TargetBlock.CanMatch)
+            {
+                return activation.TargetBlock.TypeId;
+            }
+
+            return GetRandomBoardColorType();
+        }
+
+        private BlockTypeId GetRandomBoardColorType()
+        {
+            List<BlockTypeId> colorTypes = new List<BlockTypeId>();
+
+            for (int i = 0; i < _cells.Count; i++)
+            {
+                BoardCellView candidateCell = _cells[i];
+
+                if (!CanMatchCell(candidateCell) || colorTypes.Contains(candidateCell.Block.TypeId))
+                {
+                    continue;
+                }
+
+                colorTypes.Add(candidateCell.Block.TypeId);
+            }
+
+            if (colorTypes.Count == 0)
+            {
+                return BlockTypeId.None;
+            }
+
+            return colorTypes[Random.Range(0, colorTypes.Count)];
+        }
+
+        private static void AddAffectedCell(
+            BoardCellView candidateCell,
+            ItemActivation activation,
+            HashSet<BoardCellView> affectedCells,
+            Queue<ItemActivation> activations,
+            HashSet<BlockBase> queuedItems)
+        {
+            if (candidateCell == null || candidateCell.Block == null)
+            {
+                return;
+            }
+
+            affectedCells.Add(candidateCell);
+            EnqueueActivation(candidateCell.Block, activation.TargetBlock, activations, queuedItems);
+        }
+
+        private static void EnqueueActivation(
+            BlockBase itemBlock,
+            BlockBase targetBlock,
+            Queue<ItemActivation> activations,
+            HashSet<BlockBase> queuedItems)
+        {
+            if (!itemBlock.CanActivate || queuedItems.Contains(itemBlock))
+            {
+                return;
+            }
+
+            queuedItems.Add(itemBlock);
+            activations.Enqueue(new ItemActivation(itemBlock, targetBlock));
+        }
+
+        private static void AddUniqueCells(List<BoardCellView> targetCells, List<BoardCellView> cellsToAdd)
+        {
+            HashSet<BoardCellView> existingCells = new HashSet<BoardCellView>(targetCells);
+
+            for (int i = 0; i < cellsToAdd.Count; i++)
+            {
+                if (existingCells.Add(cellsToAdd[i]))
+                {
+                    targetCells.Add(cellsToAdd[i]);
+                }
+            }
         }
 
         private void SwapCells(BoardCellView firstCell, BoardCellView secondCell, bool moveImmediately)
@@ -396,6 +631,25 @@ namespace ThreeMatch.Board
                 firstCell.transform.localPosition = GetCellPosition(secondPosition.x, secondPosition.y);
                 secondCell.transform.localPosition = GetCellPosition(firstPosition.x, firstPosition.y);
             }
+        }
+
+        private List<MatchGroup> FindMatchGroups()
+        {
+            List<MatchGroup> matchGroups = new List<MatchGroup>();
+
+            for (int y = 0; y < _height; y++)
+            {
+                AddLineMatchGroups(matchGroups, GetHorizontalLine(y), MatchDirection.Horizontal);
+            }
+
+            for (int x = 0; x < _width; x++)
+            {
+                AddLineMatchGroups(matchGroups, GetVerticalLine(x), MatchDirection.Vertical);
+            }
+
+            AddSquareMatchGroups(matchGroups);
+
+            return matchGroups;
         }
 
         private List<BoardCellView> GetHorizontalLine(int y)
@@ -422,7 +676,10 @@ namespace ThreeMatch.Board
             return line;
         }
 
-        private static void AddLineMatches(HashSet<BoardCellView> matches, List<BoardCellView> line)
+        private static void AddLineMatchGroups(
+            List<MatchGroup> matchGroups,
+            List<BoardCellView> line,
+            MatchDirection direction)
         {
             int startIndex = 0;
 
@@ -450,17 +707,21 @@ namespace ThreeMatch.Board
 
                 if (matchLength >= 3)
                 {
+                    List<BoardCellView> cells = new List<BoardCellView>(matchLength);
+
                     for (int i = startIndex; i < endIndex; i++)
                     {
-                        matches.Add(line[i]);
+                        cells.Add(line[i]);
                     }
+
+                    matchGroups.Add(new MatchGroup(cells, direction));
                 }
 
                 startIndex = endIndex;
             }
         }
 
-        private void AddSquareMatches(HashSet<BoardCellView> matches)
+        private void AddSquareMatchGroups(List<MatchGroup> matchGroups)
         {
             for (int y = 0; y < _height - 1; y++)
             {
@@ -476,12 +737,108 @@ namespace ThreeMatch.Board
                         continue;
                     }
 
-                    matches.Add(bottomLeft);
-                    matches.Add(bottomRight);
-                    matches.Add(topLeft);
-                    matches.Add(topRight);
+                    matchGroups.Add(new MatchGroup(
+                        new List<BoardCellView>
+                        {
+                            bottomLeft,
+                            bottomRight,
+                            topLeft,
+                            topRight
+                        },
+                        MatchDirection.Square));
                 }
             }
+        }
+
+        private SpecialBlockSpawn FindSpecialBlockSpawn(BoardCellView firstCell, BoardCellView secondCell)
+        {
+            List<MatchGroup> matchGroups = FindMatchGroups();
+            SpecialBlockSpawn bestSpawn = SpecialBlockSpawn.None;
+
+            for (int i = 0; i < matchGroups.Count; i++)
+            {
+                MatchGroup matchGroup = matchGroups[i];
+                BlockTypeId specialType = GetSpecialBlockType(matchGroup);
+
+                if (specialType == BlockTypeId.None)
+                {
+                    continue;
+                }
+
+                BoardCellView spawnCell = GetSpecialSpawnCell(matchGroup, firstCell, secondCell);
+
+                if (spawnCell == null)
+                {
+                    continue;
+                }
+
+                int priority = GetSpecialBlockPriority(specialType);
+
+                if (!bestSpawn.HasValue || priority > bestSpawn.Priority)
+                {
+                    bestSpawn = new SpecialBlockSpawn(specialType, spawnCell.X, spawnCell.Y, priority);
+                }
+            }
+
+            return bestSpawn;
+        }
+
+        private static BoardCellView GetSpecialSpawnCell(
+            MatchGroup matchGroup,
+            BoardCellView firstCell,
+            BoardCellView secondCell)
+        {
+            if (matchGroup.Contains(firstCell))
+            {
+                return firstCell;
+            }
+
+            if (matchGroup.Contains(secondCell))
+            {
+                return secondCell;
+            }
+
+            return null;
+        }
+
+        private static BlockTypeId GetSpecialBlockType(MatchGroup matchGroup)
+        {
+            if (matchGroup.Direction == MatchDirection.Square)
+            {
+                return BlockTypeId.Bomb;
+            }
+
+            if (matchGroup.Count >= 5)
+            {
+                return BlockTypeId.ColorBomb;
+            }
+
+            if (matchGroup.Count == 4 && matchGroup.Direction == MatchDirection.Horizontal)
+            {
+                return BlockTypeId.HorizontalRocket;
+            }
+
+            if (matchGroup.Count == 4 && matchGroup.Direction == MatchDirection.Vertical)
+            {
+                return BlockTypeId.VerticalRocket;
+            }
+
+            return BlockTypeId.None;
+        }
+
+        private static int GetSpecialBlockPriority(BlockTypeId typeId)
+        {
+            if (typeId == BlockTypeId.ColorBomb)
+            {
+                return 3;
+            }
+
+            if (typeId == BlockTypeId.Bomb)
+            {
+                return 2;
+            }
+
+            return 1;
         }
 
         private static bool CanMatchSquare(
@@ -562,16 +919,69 @@ namespace ThreeMatch.Board
 
         private IEnumerator ResolveMatchesRoutine(List<BoardCellView> matchedCells)
         {
+            yield return ResolveMatchesRoutine(matchedCells, SpecialBlockSpawn.None);
+        }
+
+        private IEnumerator ResolveMatchesRoutine(List<BoardCellView> matchedCells, SpecialBlockSpawn specialBlockSpawn)
+        {
             while (matchedCells.Count > 0)
             {
+                if (specialBlockSpawn.HasValue)
+                {
+                    RemoveSpecialSpawnCellFromMatches(matchedCells, specialBlockSpawn);
+                }
+
                 MarkMatchedCells(matchedCells);
                 yield return AnimateMatchedCellsRemove(matchedCells);
                 RemoveMatchedCells(matchedCells);
+
+                if (specialBlockSpawn.HasValue)
+                {
+                    SpawnSpecialBlock(specialBlockSpawn);
+                    specialBlockSpawn = SpecialBlockSpawn.None;
+                }
 
                 yield return CollapseAndRefillRoutine();
 
                 matchedCells = FindAllMatches();
             }
+        }
+
+        private static void RemoveSpecialSpawnCellFromMatches(
+            List<BoardCellView> matchedCells,
+            SpecialBlockSpawn specialBlockSpawn)
+        {
+            for (int i = matchedCells.Count - 1; i >= 0; i--)
+            {
+                BoardCellView cell = matchedCells[i];
+
+                if (cell.X == specialBlockSpawn.X && cell.Y == specialBlockSpawn.Y)
+                {
+                    matchedCells.RemoveAt(i);
+                }
+            }
+        }
+
+        private void SpawnSpecialBlock(SpecialBlockSpawn specialBlockSpawn)
+        {
+            BoardCellView existingCell = GetCell(specialBlockSpawn.X, specialBlockSpawn.Y);
+
+            if (existingCell != null)
+            {
+                UnregisterCellCollider(existingCell);
+                _cellPool.Despawn(existingCell);
+            }
+
+            BoardCellView specialCell = _cellPool.Spawn(
+                specialBlockSpawn.TypeId,
+                specialBlockSpawn.X,
+                specialBlockSpawn.Y,
+                GetCellPosition(specialBlockSpawn.X, specialBlockSpawn.Y));
+
+            specialCell.transform.localScale = Vector3.one * (_cellSize * 0.95f);
+            _cellMap[specialBlockSpawn.X, specialBlockSpawn.Y] = specialCell;
+            _cells[GetCellIndex(specialBlockSpawn.X, specialBlockSpawn.Y)] = specialCell;
+            RegisterCellCollider(specialCell);
         }
 
         private IEnumerator ResolveInitialMatchesRoutine()
@@ -856,6 +1266,72 @@ namespace ThreeMatch.Board
                 Cell = cell;
                 TargetPosition = targetPosition;
             }
+        }
+
+        private readonly struct ItemActivation
+        {
+            public readonly BlockBase ItemBlock;
+            public readonly BlockBase TargetBlock;
+
+            public ItemActivation(BlockBase itemBlock, BlockBase targetBlock)
+            {
+                ItemBlock = itemBlock;
+                TargetBlock = targetBlock;
+            }
+        }
+
+        private readonly struct MatchGroup
+        {
+            private readonly List<BoardCellView> _cells;
+
+            public readonly MatchDirection Direction;
+            public int Count => _cells.Count;
+
+            public MatchGroup(List<BoardCellView> cells, MatchDirection direction)
+            {
+                _cells = cells;
+                Direction = direction;
+            }
+
+            public bool Contains(BoardCellView cell)
+            {
+                return _cells.Contains(cell);
+            }
+
+            public void AddCellsTo(HashSet<BoardCellView> targetCells)
+            {
+                for (int i = 0; i < _cells.Count; i++)
+                {
+                    targetCells.Add(_cells[i]);
+                }
+            }
+        }
+
+        private readonly struct SpecialBlockSpawn
+        {
+            public static readonly SpecialBlockSpawn None = new SpecialBlockSpawn(BlockTypeId.None, -1, -1, 0);
+
+            public readonly BlockTypeId TypeId;
+            public readonly int X;
+            public readonly int Y;
+            public readonly int Priority;
+
+            public bool HasValue => TypeId != BlockTypeId.None;
+
+            public SpecialBlockSpawn(BlockTypeId typeId, int x, int y, int priority)
+            {
+                TypeId = typeId;
+                X = x;
+                Y = y;
+                Priority = priority;
+            }
+        }
+
+        private enum MatchDirection
+        {
+            Horizontal,
+            Vertical,
+            Square
         }
     }
 }

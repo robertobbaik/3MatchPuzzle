@@ -175,8 +175,12 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 430641f1acbe45a1a5e6152830713e29, type: 3}
   - {fileID: 11400000, guid: c95da2f7046747df9367ac42c729759f, type: 3}
   - {fileID: 11400000, guid: 4fc3d8c3e34f42ec805941911377954e, type: 3}
+  _itemBlockPrefabs:
+  - {fileID: 11400000, guid: 084256f1f078460281110f8730491d51, type: 3}
+  - {fileID: 11400000, guid: 11e1c834f7794f159f9334ed0ce35757, type: 3}
+  - {fileID: 11400000, guid: c0bf6263c145438daba1825729853ff6, type: 3}
+  - {fileID: 11400000, guid: 606ac0323f56468d8cb91412c3eb1dac, type: 3}
   _inputController: {fileID: 9000003}
-  _buildOnStart: 1
   _swapDuration: 0.18
   _removeDuration: 0.12
   _fallDuration: 0.2
@@ -199,6 +203,56 @@ MonoBehaviour:
     m_Bits: 4294967291
   _dragThresholdPixels: 35
   _dragPreviewMaxCellRatio: 0.95
+--- !u!1 &7000000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7000001}
+  - component: {fileID: 7000002}
+  m_Layer: 0
+  m_Name: BoardGameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7000001
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 050a525312404ab3a12b30350530d73e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _boardGrid: {fileID: 9000002}
+  _inputController: {fileID: 9000003}
+  _cameraFitter: {fileID: 519420033}
+  _gameCamera: {fileID: 519420031}
+  _buildBoardOnStart: 1
+  _fitCameraOnStart: 1
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -211,6 +265,7 @@ GameObject:
   - component: {fileID: 519420031}
   - component: {fileID: 519420029}
   - component: {fileID: 519420030}
+  - component: {fileID: 519420033}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -270,6 +325,22 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &519420033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519420028}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36ac5171d0a44ec49d31b75072e77e48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _targetCamera: {fileID: 519420031}
+  _boardGrid: {fileID: 9000002}
+  _horizontalPaddingPixels: 48
+  _minimumOrthographicSize: 10
 --- !u!20 &519420031
 Camera:
   m_ObjectHideFlags: 0
@@ -424,6 +495,7 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 7000001}
   - {fileID: 9000001}
   - {fileID: 519420032}
   - {fileID: 619394802}

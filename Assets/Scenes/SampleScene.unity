@@ -256,8 +256,7 @@ MonoBehaviour:
   _targetCamera: {fileID: 519420031}
   _boardGrid: {fileID: 9000002}
   _horizontalPaddingPixels: 48
-  _minimumOrthographicSize: 1
-  _fitOnStart: 1
+  _minimumOrthographicSize: 10
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0
@@ -426,7 +425,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 4fc3d8c3e34f42ec805941911377954e, type: 3}
   - {fileID: 11400000, guid: 430641f1acbe45a1a5e6152830713e29, type: 3}
   _inputController: {fileID: 9000003}
-  _buildOnStart: 1
   _swapDuration: 0.18
   _removeDuration: 0.12
   _fallDuration: 0.2
@@ -449,3 +447,54 @@ MonoBehaviour:
     m_Bits: 4294967295
   _dragThresholdPixels: 35
   _dragPreviewMaxCellRatio: 0.95
+--- !u!1 &7000000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7000001}
+  - component: {fileID: 7000002}
+  m_Layer: 0
+  m_Name: BoardGameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7000001
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 3
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 050a525312404ab3a12b30350530d73e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _boardGrid: {fileID: 9000002}
+  _inputController: {fileID: 9000003}
+  _cameraFitter: {fileID: 519420033}
+  _gameCamera: {fileID: 519420031}
+  _buildBoardOnStart: 1
+  _fitCameraOnStart: 1

@@ -65,8 +65,10 @@ private void ResolveMatches()
 ## Null Rule
 
 - 가능하면 null을 상태값으로 사용하지 않는다.
-- Unity Object 참조는 사용 전 검증한다.
+- 필수 Unity Object 참조는 인스펙터 연결을 전제로 하며, 누락을 정상 런타임 흐름으로 취급하지 않는다.
 - 일반 C# 객체는 생성자 주입 또는 명확한 초기화 메서드를 사용한다.
+- 단순히 `[SerializeField]` 참조가 비어 있을 가능성만으로 null 방어 코드, 조기 return, 경고 로그를 추가하지 않는다.
+- null 검증은 실제 런타임 복구 경로가 있거나, 외부 입력/비동기 로딩/선택적 참조처럼 정상 흐름에서 누락될 수 있는 경우에만 작성한다.
 
 ## Method Rule
 

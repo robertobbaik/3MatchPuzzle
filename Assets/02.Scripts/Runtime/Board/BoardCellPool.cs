@@ -47,7 +47,11 @@ namespace ThreeMatch.Board
 
                 _prefabs.Add(typeId, prefab);
                 _pooledCells.Add(typeId, new Queue<BoardCellView>());
-                _registeredTypes.Add(typeId);
+
+                if (prefab.Block.CanMatch)
+                {
+                    _registeredTypes.Add(typeId);
+                }
             }
         }
 

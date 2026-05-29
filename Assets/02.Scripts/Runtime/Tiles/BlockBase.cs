@@ -16,6 +16,7 @@ namespace ThreeMatch.Tiles
         public virtual bool CanSwap => true;
         public virtual bool IsItem => false;
         public virtual bool IsObstacle => false;
+        public virtual bool CanActivate => false;
 
         public void SetBoardPosition(Vector2Int boardPosition)
         {
@@ -30,6 +31,11 @@ namespace ThreeMatch.Tiles
         public virtual bool ApplyDamage(int amount)
         {
             return false;
+        }
+
+        public virtual bool AffectsCell(BlockBase targetBlock, BlockBase candidateBlock, int boardWidth, int boardHeight)
+        {
+            return candidateBlock == this;
         }
     }
 }

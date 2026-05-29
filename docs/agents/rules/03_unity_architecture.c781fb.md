@@ -63,6 +63,14 @@ MonoBehaviour는 다음 목적으로만 사용한다.
 
 게임의 핵심 규칙은 MonoBehaviour에 직접 작성하지 않는다.
 
+## Lifecycle Rule
+
+- `Awake`, `Start`, `Update`, `OnEnable`, `OnDisable`, `OnDestroy`, `OnValidate` 같은 Unity LifeCycle 함수는 가급적 사용하지 않는다.
+- LifeCycle 함수는 씬 또는 기능 단위의 가장 상위 Manager / Bootstrapper 클래스에서만 사용한다.
+- 하위 컴포넌트는 `Initialize`, `EnableInput`, `DisableInput`, `Dispose`처럼 명시적인 public 메서드로 초기화와 정리를 제공한다.
+- Manager / Bootstrapper는 직렬화된 참조를 통해 하위 컴포넌트를 연결하고, 정해진 순서로 초기화한다.
+- 반복 처리가 필요할 때도 개별 컴포넌트의 `Update`를 늘리지 말고, 상위 실행 흐름이나 이벤트 기반 구조를 먼저 검토한다.
+
 ## ScriptableObject Usage
 
 ScriptableObject는 설정 데이터에 사용한다.

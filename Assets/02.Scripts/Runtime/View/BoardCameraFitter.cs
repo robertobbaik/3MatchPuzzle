@@ -9,18 +9,16 @@ namespace ThreeMatch.View
         [SerializeField] private Camera _targetCamera;
         [SerializeField] private BoardGrid _boardGrid;
         [SerializeField, Min(0f)] private float _horizontalPaddingPixels = 48f;
-        [SerializeField, Min(0.01f)] private float _minimumOrthographicSize = 1f;
-        [SerializeField] private bool _fitOnStart = true;
+        [SerializeField, Min(0.01f)] private float _minimumOrthographicSize = 10f;
 
-        private void Start()
+        public void Initialize(Camera targetCamera, BoardGrid boardGrid)
         {
-            if (_fitOnStart)
-            {
-                FitToBoard();
-            }
+            _targetCamera = targetCamera;
+            _boardGrid = boardGrid;
+            NormalizeSettings();
         }
 
-        private void OnValidate()
+        private void NormalizeSettings()
         {
             _horizontalPaddingPixels = Mathf.Max(0f, _horizontalPaddingPixels);
             _minimumOrthographicSize = Mathf.Max(0.01f, _minimumOrthographicSize);
@@ -29,24 +27,13 @@ namespace ThreeMatch.View
         [ContextMenu("Fit To Board")]
         public void FitToBoard()
         {
-            if (_targetCamera == null || _boardGrid == null)
-            {
-                Debug.LogWarning("BoardCameraFitter requires serialized Camera and BoardGrid references.", this);
-                return;
-            }
+            NormalizeSettings();
 
             Transform boardTransform = _boardGrid.transform;
             Vector3 boardScale = boardTransform.lossyScale;
             float boardWorldWidth = _boardGrid.Width * _boardGrid.CellSize * Mathf.Abs(boardScale.x);
-            Vector3 boardLocalCenter = new Vector3(
-                (_boardGrid.Width - 1) * _boardGrid.CellSize * 0.5f,
-                (_boardGrid.Height - 1) * _boardGrid.CellSize * 0.5f,
-                0f);
-            Vector3 boardCenter = boardTransform.TransformPoint(boardLocalCenter);
-            Vector3 cameraPosition = _targetCamera.transform.position;
 
             _targetCamera.orthographicSize = CalculateOrthographicSize(boardWorldWidth);
-            _targetCamera.transform.position = new Vector3(boardCenter.x, boardCenter.y, cameraPosition.z);
         }
 
         private float CalculateOrthographicSize(float boardWorldWidth)

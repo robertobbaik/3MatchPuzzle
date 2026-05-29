@@ -19,50 +19,104 @@ namespace ThreeMatch.Board
         private Vector3 _pressLocalPosition;
         private Vector2Int _dragDirection;
         private bool _isDragging;
+        private bool _isInputEnabled;
+        private InputAction _pressAction;
+        private InputAction _positionAction;
 
         public BoardGrid BoardGrid => _boardGrid;
         public BoardCellView SelectedCell => _selectedCell;
 
-        private void Awake()
+        public void Initialize(BoardGrid boardGrid, Camera inputCamera)
         {
-            ResolveBoardGrid();
-            ResolveInputCamera();
+            _boardGrid = boardGrid;
+            _inputCamera = inputCamera;
+            _dragPreviewMaxCellRatio = Mathf.Clamp(_dragPreviewMaxCellRatio, 0.1f, 1f);
+            InitializeInputActions();
         }
 
-        private void Update()
+        public void EnableInput()
+        {
+            if (_isInputEnabled)
+            {
+                return;
+            }
+
+            InitializeInputActions();
+            _pressAction.started += HandlePointerPressStarted;
+            _pressAction.canceled += HandlePointerPressCanceled;
+            _positionAction.performed += HandlePointerPositionPerformed;
+            _pressAction.Enable();
+            _positionAction.Enable();
+            _isInputEnabled = true;
+        }
+
+        public void DisableInput()
+        {
+            if (!_isInputEnabled || _pressAction == null || _positionAction == null)
+            {
+                return;
+            }
+
+            _pressAction.started -= HandlePointerPressStarted;
+            _pressAction.canceled -= HandlePointerPressCanceled;
+            _positionAction.performed -= HandlePointerPositionPerformed;
+            _pressAction.Disable();
+            _positionAction.Disable();
+            ClearDragState(true);
+            _isInputEnabled = false;
+        }
+
+        public void DisposeInput()
+        {
+            DisableInput();
+            _pressAction?.Dispose();
+            _positionAction?.Dispose();
+            _pressAction = null;
+            _positionAction = null;
+        }
+
+        private void InitializeInputActions()
+        {
+            if (_pressAction != null && _positionAction != null)
+            {
+                return;
+            }
+
+            _pressAction = new InputAction("Board Pointer Press", InputActionType.Button, "<Pointer>/press");
+            _positionAction = new InputAction("Board Pointer Position", InputActionType.Value, "<Pointer>/position");
+        }
+
+        private void HandlePointerPressStarted(InputAction.CallbackContext context)
         {
             if (_boardGrid != null && _boardGrid.IsResolving)
             {
                 return;
             }
 
-            PointerFrame pointerFrame = ReadPointerFrame();
+            Vector2 screenPosition = ReadPointerScreenPosition();
+            HandleCellPressBegan(FindCellAtScreenPosition(screenPosition), screenPosition);
+        }
 
-            if (!pointerFrame.HasInput)
+        private void HandlePointerPressCanceled(InputAction.CallbackContext context)
+        {
+            if (_boardGrid != null && _boardGrid.IsResolving)
+            {
+                ClearDragState(true);
+                return;
+            }
+
+            Vector2 screenPosition = ReadPointerScreenPosition();
+            HandleCellPressEnded(_pressedCell, screenPosition);
+        }
+
+        private void HandlePointerPositionPerformed(InputAction.CallbackContext context)
+        {
+            if (_pressedCell == null || (_boardGrid != null && _boardGrid.IsResolving))
             {
                 return;
             }
 
-            if (pointerFrame.PressedThisFrame)
-            {
-                HandleCellPressBegan(FindCellAtScreenPosition(pointerFrame.ScreenPosition), pointerFrame.ScreenPosition);
-            }
-
-            if (pointerFrame.IsPressed)
-            {
-                HandleCellPressMoved(pointerFrame.ScreenPosition);
-            }
-
-            if (pointerFrame.ReleasedThisFrame)
-            {
-                HandleCellPressEnded(_pressedCell, pointerFrame.ScreenPosition);
-            }
-        }
-
-        private void OnValidate()
-        {
-            ResolveInputCamera();
-            _dragPreviewMaxCellRatio = Mathf.Clamp(_dragPreviewMaxCellRatio, 0.1f, 1f);
+            HandleCellPressMoved(context.ReadValue<Vector2>());
         }
 
         public void HandleCellPressBegan(BoardCellView cell, Vector2 screenPosition)
@@ -164,6 +218,12 @@ namespace ThreeMatch.Board
                 return;
             }
 
+            if (TryActivateCellItem(cell))
+            {
+                ClearSelection();
+                return;
+            }
+
             if (_selectedCell == null)
             {
                 SelectCell(cell);
@@ -184,40 +244,6 @@ namespace ThreeMatch.Board
             }
 
             SelectCell(cell);
-        }
-
-        private void HandleCellDragged(BoardCellView cell, Vector2 dragDelta)
-        {
-            if (!CanUseCell(cell) || _boardGrid == null)
-            {
-                return;
-            }
-
-            Vector2Int direction = GetDragDirection(dragDelta);
-            BoardCellView targetCell = _boardGrid.GetCell(cell.X + direction.x, cell.Y + direction.y);
-
-            RequestSwap(cell, targetCell);
-            ClearSelection();
-        }
-
-        private void ResolveBoardGrid()
-        {
-            if (_boardGrid != null)
-            {
-                return;
-            }
-
-            Debug.LogError("BoardInputController requires a serialized BoardGrid reference.", this);
-        }
-
-        private void ResolveInputCamera()
-        {
-            if (_inputCamera != null)
-            {
-                return;
-            }
-
-            _inputCamera = Camera.main;
         }
 
         private void SelectCell(BoardCellView cell)
@@ -261,6 +287,16 @@ namespace ThreeMatch.Board
             return _boardGrid.TryStartSwapCells(firstCell, secondCell);
         }
 
+        private bool TryActivateCellItem(BoardCellView cell)
+        {
+            if (_boardGrid == null)
+            {
+                return false;
+            }
+
+            return _boardGrid.TryActivateItemCell(cell);
+        }
+
         private static Vector2Int GetDragDirection(Vector2 dragDelta)
         {
             if (Mathf.Abs(dragDelta.x) >= Mathf.Abs(dragDelta.y))
@@ -298,11 +334,6 @@ namespace ThreeMatch.Board
 
         private Vector3 ScreenToBoardLocalPosition(Vector2 screenPosition)
         {
-            if (_inputCamera == null)
-            {
-                ResolveInputCamera();
-            }
-
             if (_inputCamera == null || _boardGrid == null)
             {
                 return Vector3.zero;
@@ -329,11 +360,6 @@ namespace ThreeMatch.Board
         {
             if (_inputCamera == null)
             {
-                ResolveInputCamera();
-            }
-
-            if (_inputCamera == null)
-            {
                 return null;
             }
 
@@ -355,65 +381,19 @@ namespace ThreeMatch.Board
             return _boardGrid.GetCell(hitCollider);
         }
 
-        private static PointerFrame ReadPointerFrame()
+        private Vector2 ReadPointerScreenPosition()
         {
-            if (Touchscreen.current != null)
+            if (_positionAction != null)
             {
-                var touch = Touchscreen.current.primaryTouch;
-
-                if (touch.press.isPressed
-                    || touch.press.wasPressedThisFrame
-                    || touch.press.wasReleasedThisFrame)
-                {
-                    return new PointerFrame(
-                        true,
-                        touch.position.ReadValue(),
-                        touch.press.wasPressedThisFrame,
-                        touch.press.wasReleasedThisFrame,
-                        touch.press.isPressed);
-                }
+                return _positionAction.ReadValue<Vector2>();
             }
 
-            if (Mouse.current != null)
+            if (Pointer.current != null)
             {
-                bool pressedThisFrame = Mouse.current.leftButton.wasPressedThisFrame;
-                bool releasedThisFrame = Mouse.current.leftButton.wasReleasedThisFrame;
-                bool isPressed = Mouse.current.leftButton.isPressed;
-
-                return new PointerFrame(
-                    pressedThisFrame || releasedThisFrame || isPressed,
-                    Mouse.current.position.ReadValue(),
-                    pressedThisFrame,
-                    releasedThisFrame,
-                    isPressed);
+                return Pointer.current.position.ReadValue();
             }
 
-            return PointerFrame.Empty;
-        }
-
-        private readonly struct PointerFrame
-        {
-            public static readonly PointerFrame Empty = new PointerFrame(false, Vector2.zero, false, false, false);
-
-            public readonly bool HasInput;
-            public readonly Vector2 ScreenPosition;
-            public readonly bool PressedThisFrame;
-            public readonly bool ReleasedThisFrame;
-            public readonly bool IsPressed;
-
-            public PointerFrame(
-                bool hasInput,
-                Vector2 screenPosition,
-                bool pressedThisFrame,
-                bool releasedThisFrame,
-                bool isPressed)
-            {
-                HasInput = hasInput;
-                ScreenPosition = screenPosition;
-                PressedThisFrame = pressedThisFrame;
-                ReleasedThisFrame = releasedThisFrame;
-                IsPressed = isPressed;
-            }
+            return Vector2.zero;
         }
     }
 }
